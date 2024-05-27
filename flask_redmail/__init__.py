@@ -1,7 +1,6 @@
-
 import smtplib
 import warnings
-from flask import current_app, _app_ctx_stack, Flask
+from flask import current_app, g, Flask
 from redmail import EmailSender, send_email
 
 class RedMail:
@@ -69,25 +68,21 @@ class RedMail:
         return sender.send(**kwargs)
 
     def teardown(self, exception):
-        ctx = _app_ctx_stack.top
-        if hasattr(ctx, 'redmail_sender'):
-            # Pre v0.3.0 don't have contex management
-            has_context = hasattr(ctx.redmail_sender, "close")
-            if has_context and ctx.redmail_sender.is_alive:
-                ctx.redmail_sender.close()
+        if hasattr(g, 'redmail_sender'):
+            has_context = hasattr(g.redmail_sender, "close")
+            if has_context and g.redmail_sender.is_alive:
+                g.redmail_sender.close()
 
     @property
     def sender(self):
         "redmail.EmailSender: The sender object"
-        ctx = _app_ctx_stack.top
-        if ctx is not None:
-            if not hasattr(ctx, 'redmail_sender'):
-                ctx.redmail_sender = self._create_sender()
-                # Pre v0.3.0 don't have contex management
-                has_context = hasattr(ctx.redmail_sender, "close")
+        if g is not None:
+            if not hasattr(g, 'redmail_sender'):
+                g.redmail_sender = self._create_sender()
+                has_context = hasattr(g.redmail_sender, "close")
                 if has_context:
-                    ctx.redmail_sender.connect()
-            return ctx.redmail_sender
+                    g.redmail_sender.connect()
+            return g.redmail_sender
 
     def _create_sender(self) -> EmailSender:
         app_config = current_app.config
